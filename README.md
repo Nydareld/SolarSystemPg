@@ -5,6 +5,7 @@
 Ce dépot est une reprise du projet de system solaire de PG pour me familiariser au développement sous mon nouvel OS
 
 ![orbits](./orbits.png)
+![anim](./Animation.gif)
 
 ## Installation
 

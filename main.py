@@ -1,13 +1,21 @@
+import matplotlib
+matplotlib.use('TkAgg')
 import math
 import numpy as np
 import random
 import matplotlib.pyplot as plot
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.animation import FuncAnimation
 
 
 from astropy.time import Time
 from astroquery.jplhorizons import Horizons
 # rajout
+
+plot.ion()
+fig = plot.figure()
+ax = fig.add_subplot(1,1,1, projection='3d')
+
 
 plot.rcParams['figure.dpi'] = 300
 
@@ -21,11 +29,12 @@ class point:
         return "({:e} , {:e} , {:e})".format(self.x, self.y, self.z)
 
 class body:
-    def __init__(self, location, mass, velocity, name = ""):
+    def __init__(self, location, mass, velocity, name = "", color="b"):
         self.location = location
         self.mass = mass
         self.velocity = velocity
         self.name = name
+        self.color = color
 
 def calculate_single_body_acceleration(bodies, body_index):
     G_const = 6.67408e-11 #m3 kg-1 s-2
@@ -61,18 +70,18 @@ def compute_gravity_step(bodies, time_step = 1):
     compute_velocity(bodies, time_step )
     update_location(bodies, time_step)
 
-def plot_output(bodies, outfile = None):
-    fig = plot.figure()
-    ax = fig.add_subplot(1,1,1, projection='3d')
+def plot_output(bodies,ax,fig):
     max_range = 0
     i=0 #indice pour les couleurs
+    fig.clf()
+    ax = fig.add_subplot(1,1,1, projection='3d')
     for current_body in bodies: 
-        randcolor = (random.random(),random.random(), random.random())
+        
         max_dim = max(max(current_body["x"]),max(current_body["y"]),max(current_body["z"]))
         if max_dim > max_range:
             max_range = max_dim
-        ax.plot(current_body["x"], current_body["y"], current_body["z"], ':', c = randcolor, label = current_body["name"])        
-        ax.plot(current_body["x"][-1],current_body["y"][-1], current_body["z"][-1], 'o', c = randcolor) 
+        ax.plot(current_body["x"], current_body["y"], current_body["z"], ':', c = current_body["color"], label = current_body["name"])        
+        ax.plot(current_body["x"][-1],current_body["y"][-1], current_body["z"][-1], 'o', c = current_body["color"]) 
         i+=1
     
     ax.set_xlim([-max_range,max_range])    
@@ -80,11 +89,12 @@ def plot_output(bodies, outfile = None):
     ax.set_zlim([-max_range,max_range])
     ax.legend(title='legende', bbox_to_anchor=(1, 1), loc='upper left')
 
+    print("redraw")
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
-    if outfile:
-        plot.savefig(outfile, dpi=300)
-    else:
-        plot.show()
+    
+
 
 # Calcule la distance minimal entre 2 astres
 def dist(a,b):
@@ -126,12 +136,13 @@ def run_simulation(bodies, names = None, time_step = 1, number_of_steps = 10000,
     #liste pour chaque corps
     body_locations_hist = []
     for current_body in bodies:
-        body_locations_hist.append({"x":[], "y":[], "z":[], "name":current_body.name})
+        body_locations_hist.append({"x":[], "y":[], "z":[], "name":current_body.name, "color":current_body.color})
     
     minMatrice = matriceDistance(bodies)
     minSimTuple = minDistMatrice(minMatrice)
     minSim = minMatrice[minSimTuple[0]][minSimTuple[1]]
 
+    
     for i in range(1,number_of_steps):
         compute_gravity_step(bodies, time_step)            
         
@@ -145,11 +156,13 @@ def run_simulation(bodies, names = None, time_step = 1, number_of_steps = 10000,
 
         if i % report_freq == 0:
     
-
             for index, body_location in enumerate(body_locations_hist):
                 body_location["x"].append(bodies[index].location.x)
                 body_location["y"].append(bodies[index].location.y)           
-                body_location["z"].append(bodies[index].location.z)       
+                body_location["z"].append(bodies[index].location.z)
+            plot_output(body_locations_hist,ax,fig)
+           
+
     
     print("La distance minimal de la simulation est est {:e}".format(minMatrice[minSimTuple[0]][minSimTuple[1]])+" il sagit de la distance entre "+bodies[minSimTuple[0]].name+" et "+bodies[minSimTuple[1]].name )
 
@@ -162,11 +175,11 @@ bodiesSpec = [
     { "id": 2, "name" : "Ventdanus" , "mass":4.8e24},
     { "id": 3, "name" : "Kerbin" , "mass":6e24},
     { "id": 4, "name" : "MarsAtak" , "mass":2.4e24},
-    { "id": 5, "name" : "Jupiter-3" , "mass":1e28},
-    { "id": 6, "name" : "Satourne" , "mass":5.7e26},
-    { "id": 7, "name" : "UrAnus" , "mass":8.7e25},
-    { "id": 8, "name" : "Padidé :(" , "mass":1e26},
-    { "id": 9, "name" : "PlutoLeIench" , "mass":1.3e22},
+    # { "id": 5, "name" : "Jupiter-3" , "mass":1e28},
+    # { "id": 6, "name" : "Satourne" , "mass":5.7e26},
+    # { "id": 7, "name" : "UrAnus" , "mass":8.7e25},
+    # { "id": 8, "name" : "Padidé :(" , "mass":1e26},
+    # { "id": 9, "name" : "PlutoLeIench" , "mass":1.3e22},
     { "id" : "apophis", "name" : "Armagedon" , "mass":5e10}
 ]
 
@@ -195,7 +208,8 @@ if __name__ == "__main__":
                     np.double(obj['vx']*velocityConstant),
                     np.double(obj['vy']*velocityConstant),
                     np.double(obj['vz']*velocityConstant)),
-                name = bodySpec["name"]
+                name = bodySpec["name"],
+                color = (random.random(),random.random(), random.random())
             )
         )
 
@@ -211,4 +225,4 @@ if __name__ == "__main__":
 
     motions = run_simulation(bodies, time_step = 1000, number_of_steps = 10000, report_freq = 100)
     
-    plot_output(motions, outfile = 'orbits.png')
+    #plot_output(motions)
