@@ -16,6 +16,9 @@ class point:
         self.x = x
         self.y = y
         self.z = z
+    
+    def __str__(self):
+        return "({:e} , {:e} , {:e})".format(self.x, self.y, self.z)
 
 class body:
     def __init__(self, location, mass, velocity, name = ""):
@@ -55,62 +58,120 @@ def update_location(bodies, time_step = 1):
         target_body.location.z += target_body.velocity.z * time_step
 
 def compute_gravity_step(bodies, time_step = 1):
-    compute_velocity(bodies, time_step = time_step)
-    update_location(bodies, time_step = time_step)
+    compute_velocity(bodies, time_step )
+    update_location(bodies, time_step)
 
 def plot_output(bodies, outfile = None):
     fig = plot.figure()
-    colours = ['r','b','g','y','m','c','w','r','b','y']
     ax = fig.add_subplot(1,1,1, projection='3d')
     max_range = 0
     i=0 #indice pour les couleurs
     for current_body in bodies: 
+        randcolor = (random.random(),random.random(), random.random())
         max_dim = max(max(current_body["x"]),max(current_body["y"]),max(current_body["z"]))
         if max_dim > max_range:
             max_range = max_dim
-        ax.plot(current_body["x"], current_body["y"], current_body["z"], ':', c = colours[i], label = current_body["name"])        
-        ax.plot(current_body["x"][-1],current_body["y"][-1], current_body["z"][-1], 'o', c = colours[i]) 
+        ax.plot(current_body["x"], current_body["y"], current_body["z"], ':', c = randcolor, label = current_body["name"])        
+        ax.plot(current_body["x"][-1],current_body["y"][-1], current_body["z"][-1], 'o', c = randcolor) 
         i+=1
     
     ax.set_xlim([-max_range,max_range])    
     ax.set_ylim([-max_range,max_range])
     ax.set_zlim([-max_range,max_range])
-    ax.legend()        
+    ax.legend(title='legende', bbox_to_anchor=(1, 1), loc='upper left')
+
 
     if outfile:
         plot.savefig(outfile, dpi=300)
     else:
         plot.show()
 
-def run_simulation(bodies, names = None, time_step = 1, number_of_steps = 10000, report_freq = 100):
+# Calcule la distance minimal entre 2 astres
+def dist(a,b):
+    return math.sqrt(math.pow(a.x-b.x,2)+math.pow(a.y-b.y,2)+math.pow(a.z-b.z,2))
 
+# Calcule une matrice de distances entre tout les astres d'une liste
+def matriceDistance(bodies):
+    matrice = []
+    for body1 in bodies:
+        line = []
+        for body2 in bodies:
+            line.append(dist(body1.location,body2.location))
+        matrice.append(line)
+    return matrice
+
+# Affiche en notation scientifique toutes les distances entre des astres
+def prettyDistance(bodies):
+    matrice = matriceDistance(bodies)
+    for index1,body1 in enumerate(bodies):
+        print( "Distances retaives a l'astre " + body1.name + ':' )
+        for index2,body2 in enumerate(bodies):
+            if index1 != index2:
+                print("     "+body2.name+" : {:e}".format(matrice[index1][index2]))
+        print("\n")
+            
+# retourne un tuple x,y des indexes de la distance la plus faible dans une matrice
+def minDistMatrice(matrice):
+    currentMin = matrice[0][1]
+    tupleIndexes = (0,1)
+    for x in range(len(matrice)):
+        line = matrice[x]
+        for y in range(len(line)):
+            if x!=y and matrice[x][y] < currentMin:
+                currentMin = matrice[x][y]
+                tupleIndexes = (x,y)
+    return tupleIndexes
+
+def run_simulation(bodies, names = None, time_step = 1, number_of_steps = 10000, report_freq = 100):
     #liste pour chaque corps
     body_locations_hist = []
     for current_body in bodies:
         body_locations_hist.append({"x":[], "y":[], "z":[], "name":current_body.name})
-        
+    
+    minMatrice = matriceDistance(bodies)
+    minSimTuple = minDistMatrice(minMatrice)
+    minSim = minMatrice[minSimTuple[0]][minSimTuple[1]]
+
     for i in range(1,number_of_steps):
-        compute_gravity_step(bodies, time_step = 1000)            
+        compute_gravity_step(bodies, time_step)            
         
+        matrice = matriceDistance(bodies)
+        currMinTuple = minDistMatrice(matriceDistance(bodies))
+        currMin = matrice[currMinTuple[0]][currMinTuple[1]]
+        if currMin < minSim:
+            minSim = currMin
+            minSimTuple = currMinTuple
+            minMatrice = matrice
+
         if i % report_freq == 0:
+    
+
             for index, body_location in enumerate(body_locations_hist):
                 body_location["x"].append(bodies[index].location.x)
                 body_location["y"].append(bodies[index].location.y)           
                 body_location["z"].append(bodies[index].location.z)       
+    
+    print("La distance minimal de la simulation est est {:e}".format(minMatrice[minSimTuple[0]][minSimTuple[1]])+" il sagit de la distance entre "+bodies[minSimTuple[0]].name+" et "+bodies[minSimTuple[1]].name )
 
     return body_locations_hist        
             
 #planet data (location (m), mass (kg), velocity (m/s)
-sun = {"location":point(0,0,0), "mass":2e30, "velocity":point(0,0,0)}
-mercury = {"location":point(0,5.7e10,0), "mass":3.285e23, "velocity":point(47000,0,0)}
-venus = {"location":point(0,1.1e11,0), "mass":4.8e24, "velocity":point(35000,0,0)}
-earth = {"location":point(0,1.5e11,0), "mass":6e24, "velocity":point(30000,0,0)}
-mars = {"location":point(0,2.2e11,0), "mass":2.4e24, "velocity":point(24000,0,0)}
-jupiter = {"location":point(0,7.7e11,0), "mass":1e28, "velocity":point(13000,0,0)}
-saturn = {"location":point(0,1.4e12,0), "mass":5.7e26, "velocity":point(9000,0,0)}
-uranus = {"location":point(0,2.8e12,0), "mass":8.7e25, "velocity":point(6835,0,0)}
-neptune = {"location":point(0,4.5e12,0), "mass":1e26, "velocity":point(5477,0,0)}
-pluto = {"location":point(0,3.7e12,0), "mass":1.3e22, "velocity":point(4748,0,0)}
+bodiesSpec = [
+    { "id": 0, "name" : "Soleil" , "mass":2e30},
+    { "id": 1, "name" : "Mercimam" , "mass":3.285e23},
+    { "id": 2, "name" : "Ventdanus" , "mass":4.8e24},
+    { "id": 3, "name" : "Kerbin" , "mass":6e24},
+    { "id": 4, "name" : "MarsAtak" , "mass":2.4e24},
+    { "id": 5, "name" : "Jupiter-3" , "mass":1e28},
+    { "id": 6, "name" : "Satourne" , "mass":5.7e26},
+    { "id": 7, "name" : "UrAnus" , "mass":8.7e25},
+    { "id": 8, "name" : "Padidé :(" , "mass":1e26},
+    { "id": 9, "name" : "PlutoLeIench" , "mass":1.3e22},
+    { "id" : "apophis", "name" : "Armagedon" , "mass":5e10}
+]
+
+locationConstant = 1.5e11
+velocityConstant = 1731460
 
 if __name__ == "__main__":
     
@@ -118,33 +179,36 @@ if __name__ == "__main__":
     sim_start_date = "2021-01-01"
     time = Time(sim_start_date).jd
     
+    bodies = []
 
-    obj1 = Horizons(id=1, location="@sun", epochs=time, id_type='id').vectors()
-    obj2 = Horizons(id=2, location="@sun", epochs=time, id_type='id').vectors()
-    obj3 = Horizons(id=3, location="@sun", epochs=time, id_type='id').vectors()
-    obj4 = Horizons(id=4, location="@sun", epochs=time, id_type='id').vectors()
-    obj5 = Horizons(id=5, location="@sun", epochs=time, id_type='id').vectors()
-    obj6 = Horizons(id=6, location="@sun", epochs=time, id_type='id').vectors()
-    obj7 = Horizons(id=7, location="@sun", epochs=time, id_type='id').vectors()
-    obj8 = Horizons(id=8, location="@sun", epochs=time, id_type='id').vectors()
-    obj9 = Horizons(id='apophis', location="@sun", epochs=time, id_type='id').vectors()
+    for bodySpec in bodiesSpec:
+       
+        obj = Horizons(id=bodySpec["id"], location="@sun", epochs=time, id_type='id').vectors()
+        bodies.append(
+            body( 
+                location=point(
+                    np.double(obj['x']*locationConstant),
+                    np.double(obj['y']*locationConstant),
+                    np.double(obj['z']*locationConstant)),
+                mass = bodySpec["mass"],
+                velocity = point(
+                    np.double(obj['vx']*velocityConstant),
+                    np.double(obj['vy']*velocityConstant),
+                    np.double(obj['vz']*velocityConstant)),
+                name = bodySpec["name"]
+            )
+        )
 
-    #liste planète
-    bodies = [
-        body( location = sun["location"], mass = sun["mass"], velocity = sun["velocity"], name = "Soleil"),
+   
+    print(prettyDistance(bodies))
 
-        body( location=point(np.double(obj1['x']*1.5e11), np.double(obj1['y']*1.5e11),np.double(obj1['z']*1.5e11)), mass = mercury["mass"], velocity = point(np.double(obj1['vx']*1731460), np.double(obj1['vy']*1731460), np.double(obj1['vz']*1731460)), name = "Mercure"),
-        body( location=point(np.double(obj2['x']*1.5e11), np.double(obj2['y']*1.5e11),np.double(obj2['z']*1.5e11)), mass = venus["mass"], velocity = point(np.double(obj2['vx']*1731460), np.double(obj2['vy']*1731460), np.double(obj2['vz']*1731460)), name = "Vénus"),
-        body( location=point(np.double(obj3['x']*1.5e11), np.double(obj3['y']*1.5e11),np.double(obj3['z']*1.5e11)), mass = earth["mass"], velocity = point(np.double(obj3['vx']*1731460), np.double(obj3['vy']*1731460), np.double(obj3['vz']*1731460)), name = "Terre"),
-        body( location=point(np.double(obj4['x']*1.5e11), np.double(obj4['y']*1.5e11),np.double(obj4['z']*1.5e11)), mass = mars["mass"], velocity = point(np.double(obj4['vx']*1731460), np.double(obj4['vy']*1731460), np.double(obj4['vz']*1731460)), name = "Mars"),
-        #body( location=point(np.double(obj5['x']*1.5e11), np.double(obj5['y']*1.5e11),np.double(obj5['z']*1.5e11)), mass = jupiter["mass"], velocity = point(np.double(obj5['vx']*1731460), np.double(obj5['vy']*1731460), np.double(obj5['vz']*1731460)), name = "Jupiter"),
-        #body( location=point(np.double(obj6['x']*1.5e11), np.double(obj6['y']*1.5e11),np.double(obj6['z']*1.5e11)), mass = saturn["mass"], velocity = point(np.double(obj6['vx']*1731460), np.double(obj6['vy']*1731460), np.double(obj6['vz']*1731460)), name = "Saturne"),
-        #body( location=point(np.double(obj7['x']*1.5e11), np.double(obj7['y']*1.5e11),np.double(obj7['z']*1.5e11)), mass = uranus["mass"], velocity = point(np.double(obj7['vx']*1731460), np.double(obj7['vy']*1731460), np.double(obj7['vz']*1731460)), name = "uranus"),
-        #body( location=point(np.double(obj8['x']*1.5e11), np.double(obj8['y']*1.5e11),np.double(obj8['z']*1.5e11)), mass = neptune["mass"], velocity = point(np.double(obj8['vx']*1731460), np.double(obj8['vy']*1731460), np.double(obj8['vz']*1731460)), name = "neptune"),
-        body( location=point(np.double(obj9['x']*1.5e11), np.double(obj9['y']*1.5e11),np.double(obj9['z']*1.5e11)), mass = 5e10, velocity = point(np.double(obj9['vx']*1731460), np.double(obj9['vy']*1731460), np.double(obj9['vz']*1731460)), name = "Apophis"),
-        ]
+    matrice = matriceDistance(bodies)
+    minDist = minDistMatrice(matrice)
 
+    print(bodies[0].velocity)
+
+    print("La distance minimal est {:e}".format(matrice[minDist[0]][minDist[1]])+" il sagit de la distance entre "+bodies[minDist[0]].name+" et "+bodies[minDist[1]].name )
+
+    motions = run_simulation(bodies, time_step = 1000, number_of_steps = 10000, report_freq = 100)
     
-    
-    motions = run_simulation(bodies, time_step = 100, number_of_steps = 8000, report_freq = 100)
     plot_output(motions, outfile = 'orbits.png')
